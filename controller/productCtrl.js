@@ -1,8 +1,21 @@
-const { request } = require("express");
 const Product = require("../models/productModel");
+const User = require("../models/userModel");
 const asyncHandler = require("express-async-handler");
 const slugify = require("slugify");
-
+const validateMongoDbId = require("../utils/validateMongodbid");
+const fs = require("fs");
+const {
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  uploadBytes,
+  getDownloadURL,
+} = require("firebase/storage");
+const {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+} = require("firebase/auth");
+// const uniqid = require("uniqid");
 const createProduct = asyncHandler(async (req, res) => {
   try {
     if (req.body.title) {
@@ -17,6 +30,7 @@ const createProduct = asyncHandler(async (req, res) => {
 
 const updateProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  validateMongoDbId(id);
   try {
     if (req.body.title) {
       req.body.slug = slugify(req.body.title);
@@ -24,7 +38,7 @@ const updateProduct = asyncHandler(async (req, res) => {
     const updateAProduct = await Product.findByIdAndUpdate(id, req.body, {
       new: true,
     });
-    console.log(req.body);
+    //  console.log(req.body);
     res.json(updateAProduct);
   } catch (error) {
     throw new Error(error);
@@ -33,6 +47,7 @@ const updateProduct = asyncHandler(async (req, res) => {
 
 const deleteProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  validateMongoDbId(id);
   try {
     const deleteAProduct = await Product.findByIdAndDelete(id);
     res.json(deleteAProduct);
@@ -43,8 +58,9 @@ const deleteProduct = asyncHandler(async (req, res) => {
 
 const getAProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  validateMongoDbId(id);
   try {
-    const findProduct = await Product.findById(id);
+    const findProduct = await Product.findById(id).populate("color");
     res.json(findProduct);
   } catch (error) {
     throw new Error(error);
@@ -96,10 +112,99 @@ const getAllProduct = asyncHandler(async (req, res) => {
   }
 });
 
+const addToWishlist = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { prodId } = req.body;
+  try {
+    const user = await User.findById(_id);
+    const alreadyAdded = user.wishlist.find((id) => id.toString() === prodId);
+    if (alreadyAdded) {
+      let user = await User.findByIdAndUpdate(
+        _id,
+        {
+          $pull: { wishlist: prodId },
+        },
+        {
+          new: true,
+        }
+      );
+      res.json(user);
+    } else {
+      let user = await User.findByIdAndUpdate(
+        _id,
+        {
+          $push: { wishlist: prodId },
+        },
+        {
+          new: true,
+        }
+      );
+      res.json(user);
+    }
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+const rating = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { star, prodId, comment } = req.body;
+  try {
+    const product = await Product.findById(prodId);
+    let alreadyRated = product.ratings.find(
+      (userId) => userId.postedby.toString() === _id.toString()
+    );
+    if (alreadyRated) {
+      const updateRating = await Product.updateOne(
+        {
+          ratings: { $elemMatch: alreadyRated },
+        },
+        {
+          $set: { "ratings.$.star": star, "ratings.$.comment": comment },
+        },
+        { new: true }
+      );
+    } else {
+      const rateProduct = await Product.findByIdAndUpdate(
+        prodId,
+        {
+          $push: {
+            ratings: {
+              star: star,
+              comment: comment,
+              postedby: _id,
+            },
+          },
+        },
+        { new: true }
+      );
+    }
+    const getAllRatings = await Product.findById(prodId);
+    let totalRating = getAllRatings.ratings.length;
+    let ratingSum = getAllRatings.ratings
+      .map((item) => item.star)
+      .reduce((prev, current) => prev + current, 0);
+    let actualRating = Math.round(ratingSum / totalRating);
+    let finalProduct = await Product.findByIdAndUpdate(
+      prodId,
+      {
+        totalrating: actualRating,
+      },
+      { new: true }
+    );
+    res.json(finalProduct);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+// Initialize Firebase
+
 module.exports = {
   createProduct,
   getAProduct,
   getAllProduct,
   updateProduct,
   deleteProduct,
+  addToWishlist,
+  rating,
 };

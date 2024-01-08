@@ -1,4 +1,3 @@
-const { request } = require("express");
 const User = require("../models/userModel");
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
@@ -13,7 +12,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
         const user = await User.findById(decoded.id);
         req.user = user;
         next();
-        console.log(decoded);
+        //   console.log(decoded);
       }
     } catch (error) {
       throw new Error("Not Authorized token expired, Please login again");
@@ -24,7 +23,6 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
 });
 
 const isAdmin = asyncHandler(async (req, res, next) => {
-  console.log(req.user);
   const { email } = req.user;
   const adminUser = await User.findOne({ email });
   if (adminUser.role !== "admin") {

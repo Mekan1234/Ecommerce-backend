@@ -38,11 +38,12 @@ const blogSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
-    image: {
-      type: String,
-      default:
-        "https://blogger.googleusercontent.com/img/b/U2hvZWJveA/AVvXsEimQpPJxGst4O8fU1ugI9CLaVbRxoUiRTZKo5hV7--twCoca8AZItw7LECW2p6olqdejNHyAJ-4kOIq8q3M5QiQ6M_CIibrCR8ZziZ8znqHcm6NbKeAFP6PwwCPBiQXZP95GPS1WzPLzFXXQnCB_1mlcCGWYVkJALuHoA/w1200",
-    },
+    images: [
+      {
+        URL: String,
+        name: String,
+      },
+    ],
     admin: {
       type: String,
       default: "admin",
